@@ -1,6 +1,7 @@
 # moe-clock
 A lightweight terminal clock featuring anime-style digit sprites (similar to those found on Rule34 or Gelbooru).
 
+<img width="800" height="450" alt="demo" src="https://github.com/user-attachments/assets/8dedc574-46cb-466b-8a82-bb7e3459c7bd" />
 Requires a terminal that supports the Kitty Graphics Protocol.
 
 ## Instalation

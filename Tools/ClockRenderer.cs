@@ -88,24 +88,23 @@ public class ClockRenderer
         (int, int) imageSize = GetImageSizeInConsole();
         while (!cToken.IsCancellationRequested)
         {
-            if (DateTimeOffset.Now.ToUnixTimeSeconds() - lastRenderTime.ToUnixTimeSeconds() >= 1)
+            CleanScreen();
+            int cursorLeft = 0; int cursorTop = 0;
+            lastRenderTime = DateTimeOffset.Now;
+            string timeToRender = $"{lastRenderTime.Hour:00}{lastRenderTime.Minute:00}";
+            if (withSeconds) timeToRender += $"{lastRenderTime.Second:00}";
+            if (center)
+                SetInitialCentralCursorPosition(ref cursorLeft, ref cursorTop, timeToRender.Length);
+            for (int i = 0; i < timeToRender.Length; i++)
             {
-                CleanScreen();
-                int cursorLeft = 0; int cursorTop = 0;
-                lastRenderTime = DateTimeOffset.Now;
-                string timeToRender = $"{lastRenderTime.Hour:00}{lastRenderTime.Minute:00}";
-                if (withSeconds) timeToRender += $"{lastRenderTime.Second:00}";
-                if (center)
-                    SetInitialCentralCursorPosition(ref cursorLeft, ref cursorTop, timeToRender.Length);
-                for (int i = 0; i < timeToRender.Length; i++)
-                {
-                    Console.SetCursorPosition(cursorLeft, cursorTop);
-                    int numberToRender = Convert.ToInt32(timeToRender[i].ToString());
-                    Console.Write($"\e_Ga=T,f=100,m=0;{base64Bytes[numberToRender]}\e\\");
-                    cursorLeft += (imageSize.Item1 + imageMargin);
-                }
-                await Task.Delay(100, cToken);
+                Console.SetCursorPosition(cursorLeft, cursorTop);
+                int numberToRender = timeToRender[i] - '0';
+                Console.Write($"\e_Ga=T,f=100,m=0;{base64Bytes[numberToRender]}\e\\");
+                cursorLeft += (imageSize.Item1 + imageMargin);
             }
+            int msToNextSecond = 1000 - lastRenderTime.Millisecond;
+            await Task.Delay(msToNextSecond, cToken);
+
         }
     }
 }
