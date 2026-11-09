@@ -27,6 +27,9 @@ moe-clock --help
 
 #Execute with specified theme, centering, and displaying seconds
 moe-clock -t gelbooruHBig -c -s
+
+#Execute with external theme, ignoring check for console support
+moe-clock -et external/theme/directory/ -i
 ```
 
 ## License

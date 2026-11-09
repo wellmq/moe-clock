@@ -1,7 +1,7 @@
 public class SupportChecker
 {
     static string[] supportedTerminals = [
-      "kitty", "ghostty", "wezterm", "konsole", "rio", "warp", "wayst"
+      "kitty", "ghostty", "wezterm", "konsole", "wayst"
     ];
     public bool HasKittyGraphicsProtocolSupport()
     {
