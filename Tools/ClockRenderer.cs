@@ -1,13 +1,14 @@
 using System.Runtime.InteropServices;
+using System.Buffers.Binary;
 
 public class ClockRenderer
 {
     //Standart hex code for *Terminal IOCtl Get Window Size*
     private ulong TIOCGWINSZ = 0x5413;
     private int imageMargin = 2;
-    private bool big;
     private bool center;
     private bool withSeconds;
+    private string[] base64Bytes;
 
     [StructLayout(LayoutKind.Sequential)]
     private struct WindowSize
@@ -32,19 +33,14 @@ public class ClockRenderer
 
     private (int, int) GetImageSizeInConsole()
     {
+        // Read 32 chars because 32 base64 chars are converting to 24 bytes header of png
+        byte[] bytes = Convert.FromBase64String(base64Bytes[0][0..32]);
+        int imageX = BinaryPrimitives.ReadInt32BigEndian(bytes[16..20]);
+        int imageY = BinaryPrimitives.ReadInt32BigEndian(bytes[20..24]);
         (int, int) symbolSize = GetSymbolSizeFromLibc();
-        int columns, rows;
-        //All png assets have fixed size (136x300 or 68x150)
-        if (big)
-        {
-            columns = 136 / symbolSize.Item1;
-            rows = 300 / symbolSize.Item2;
-        }
-        else
-        {
-            columns = 68 / symbolSize.Item1;
-            rows = 150 / symbolSize.Item2;
-        }
+        // Calculate (rows, columns) size of image
+        int columns = imageX / symbolSize.Item1;
+        int rows = imageY / symbolSize.Item2;
         return (columns, rows);
     }
 
@@ -62,19 +58,19 @@ public class ClockRenderer
         Console.Write("\e[2J");
     }
 
-    public ClockRenderer(bool center, bool big, bool withSeconds)
+    public ClockRenderer(bool center, bool withSeconds, string[] base64Bytes)
     {
         this.center = center;
-        this.big = big;
         this.withSeconds = withSeconds;
+        this.base64Bytes = base64Bytes;
     }
 
-    public void RenderPreview(string[] base64Bytes)
+    public void RenderPreview()
     {
         CleanScreen();
         (int, int) imageSize = GetImageSizeInConsole();
         int cursorLeft = Console.CursorLeft; int cursorTop = Console.CursorTop;
-        //if (center) SetInitialCentralCursorPosition(ref cursorLeft, ref cursorTop, 10);
+        if (center) SetInitialCentralCursorPosition(ref cursorLeft, ref cursorTop, 10);
         for (int i = 0; i < base64Bytes.Length; i++)
         {
             Console.SetCursorPosition(cursorLeft, cursorTop);
@@ -82,7 +78,7 @@ public class ClockRenderer
             cursorLeft += (imageSize.Item1 + imageMargin);
         }
     }
-    public async Task RenderClock(string[] base64Bytes, CancellationToken cToken)
+    public async Task RenderClock(CancellationToken cToken)
     {
         DateTimeOffset lastRenderTime = DateTimeOffset.MinValue;
         (int, int) imageSize = GetImageSizeInConsole();

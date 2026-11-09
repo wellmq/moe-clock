@@ -2,15 +2,29 @@
 {
     static async Task<int> Main(string[] args)
     {
-        if (!ConsoleSupported())
-        {
-            Console.WriteLine("your console emulator not supported");
-            return 1;
-        }
         Console.TreatControlCAsInput = true;
         bool parsed = TryParse(args, out LaunchParameters lParams, out string errorMessage);
         if (parsed)
         {
+            if (lParams.ShowHelp)
+            {
+                Console.WriteLine("""
+                    moe-clock is a terminal clock with anime number sprites
+                    
+                    Usage:
+                      moe-clock [options]
+                    Options:
+                      -l, --list-all-themes         List all available themes
+                      -p, --preview                 Show a preview of all digits for selected theme
+                      -t, --theme <TITLE>           (built-in)Theme to display (default: "gelbooru")
+                      -et, --external-theme <PATH>  Use external theme to display(specified directory must contains (0..9).png assets, all pngs also must be same size);
+                      -s, --seconds                 Display seconds
+                      -c, --center                  Center the clock in the terminal window
+                      -i, --ignore-support-check    Ignore check for support the console
+                    """);
+                return 0;
+            }
+
             AssetsLoader aLoader = new AssetsLoader();
             if (lParams.ListAllThemes)
             {
@@ -21,59 +35,48 @@
                 }
                 return 0;
             }
-            if (lParams.ShowPreview)
+
+            string[] base64Bytes = new string[10];
+            try
             {
-                string[] base64Bytes = new string[10];
-                try
+                //Selected built-in theme to display
+                if (!string.IsNullOrWhiteSpace(lParams.Theme) && string.IsNullOrWhiteSpace(lParams.ExternalTheme))
                 {
                     base64Bytes = aLoader.GetBytesOfTheme(lParams.Theme);
                 }
-                catch (Exception ex)
+                //Selected external theme to display
+                else if (string.IsNullOrWhiteSpace(lParams.Theme) && !string.IsNullOrWhiteSpace(lParams.ExternalTheme))
                 {
-                    Console.WriteLine(ex.Message);
-                    return 1;
+                    base64Bytes = aLoader.GetBytesOfExternalTheme(lParams.ExternalTheme);
                 }
-                bool big = lParams.Theme.Contains("Big");
-                ClockRenderer cRenderer = new ClockRenderer(lParams.Center, big, lParams.Seconds);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+                return 1;
+            }
+
+            if (!lParams.IgnoreConsoleSupportCheck && !CheckForConsoleSupport())
+            {
+                Console.WriteLine("your console emulator not supported");
+                return 1;
+            }
+
+            ClockRenderer cRenderer = new ClockRenderer(lParams.Center, lParams.Seconds, base64Bytes);
+            if (lParams.ShowPreview)
+            {
                 OpenAlternateScreenBuffer();
-                cRenderer.RenderPreview(base64Bytes);
+                cRenderer.RenderPreview();
                 AwaitCtrlC();
                 CloseAlternateScreenBuffer();
                 return 0;
             }
-            if (lParams.ShowHelp)
-            {
-                Console.WriteLine("""
-                    moe-clock is a terminal clock with anime number sprites
-                    
-                    Usage:
-                      moe-clock [options]
-                    Options:
-                      -l, --list-all-themes     List all available themes
-                      -p, --preview             Show a preview of all digits for selected theme
-                      -t, --theme <title>       Theme to display (default: "gelbooru")
-                      -s, --seconds             Display seconds
-                      -c, --center              Center the clock in the terminal window
-                    """);
-                return 0;
-            }
+
             else //Standart render
             {
-                string[] base64Bytes = new string[10];
-                try
-                {
-                    base64Bytes = aLoader.GetBytesOfTheme(lParams.Theme);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine(ex.Message);
-                    return 1;
-                }
-                bool big = lParams.Theme.Contains("Big");
                 OpenAlternateScreenBuffer();
-                ClockRenderer cRenderer = new ClockRenderer(lParams.Center, big, lParams.Seconds);
                 CancellationTokenSource cSource = new CancellationTokenSource();
-                _ = cRenderer.RenderClock(base64Bytes, cSource.Token);
+                _ = cRenderer.RenderClock(cSource.Token);
                 AwaitCtrlC();
                 cSource.Cancel();
                 CloseAlternateScreenBuffer();
@@ -103,7 +106,7 @@
             if (cKeyInfo.Key == ConsoleKey.C && cKeyInfo.Modifiers == ConsoleModifiers.Control) awaiting = false;
         }
     }
-    static bool ConsoleSupported()
+    static bool CheckForConsoleSupport()
     {
         SupportChecker sChecker = new SupportChecker();
         return sChecker.HasKittyGraphicsProtocolSupport();
@@ -137,12 +140,26 @@
                 case "--theme":
                     if (args.Length > i + 1)
                     {
+                        lParams.ExternalTheme = "";
                         lParams.Theme = args[i + 1];
                         i++;
                     }
                     else
                     {
                         errorMessage = "theme not specified";
+                    }
+                    break;
+                case "-et":
+                case "--external-theme":
+                    if (args.Length > i + 1)
+                    {
+                        lParams.Theme = "";
+                        lParams.ExternalTheme = args[i + 1];
+                        i++;
+                    }
+                    else
+                    {
+                        errorMessage = "theme path not specified";
                     }
                     break;
                 case "-s":
@@ -152,6 +169,10 @@
                 case "-c":
                 case "--center":
                     lParams.Center = true;
+                    break;
+                case "-i":
+                case "--ignore-support-check":
+                    lParams.IgnoreConsoleSupportCheck = true;
                     break;
             }
         }

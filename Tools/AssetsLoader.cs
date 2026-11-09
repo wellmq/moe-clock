@@ -11,21 +11,43 @@ public class AssetsLoader
     }
     public string[] GetBytesOfTheme(string name)
     {
-        if (!GetListOfThemes().Contains(name)) throw new Exception("theme not exists");
+        bool isThemeExits = GetListOfThemes().Contains(name);
+        if (!isThemeExits) throw new Exception("theme not exists");
         string baseName = $"moe-clock.Assets.{name}";
         Assembly assembly = System.Reflection.Assembly.GetExecutingAssembly();
         byte[][] bytes = new byte[10][];
+        // Read bytes of images
         for (int i = 0; i < 10; i++)
         {
             using Stream stream = assembly.GetManifestResourceStream($"{baseName}.{i}.png");
             bytes[i] = new byte[stream.Length];
             stream.ReadExactly(bytes[i]);
         }
-        string[] base64Bytes = new string[10];
+        string[] base64Bytes = ConvertBytesToBase64Strings(bytes);
+        return base64Bytes;
+    }
+    public string[] GetBytesOfExternalTheme(string path)
+    {
+        bool isDirectoryExists = Directory.Exists(path);
+        if (!isDirectoryExists) throw new Exception("specified directory not exists");
+        byte[][] bytes = new byte[10][];
+        // Read bytes of images
         for (int i = 0; i < 10; i++)
         {
-            byte[] blob = bytes[i];
-            base64Bytes[i] = Convert.ToBase64String(blob);
+            string filePath = Path.Combine(path, $"{i}.png");
+            bool isImageExists = File.Exists(filePath);
+            if (!isImageExists) throw new Exception("not all images (0..9).png exists");
+            bytes[i] = File.ReadAllBytes(filePath);
+        }
+        string[] base64Bytes = ConvertBytesToBase64Strings(bytes);
+        return base64Bytes;
+    }
+    public string[] ConvertBytesToBase64Strings(byte[][] bytes)
+    {
+        string[] base64Bytes = new string[bytes.Length];
+        for (int i = 0; i < 10; i++)
+        {
+            base64Bytes[i] = Convert.ToBase64String(bytes[i]);
         }
         return base64Bytes;
     }
